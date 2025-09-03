@@ -57,7 +57,7 @@ It includes:
 - Perform **data cleaning** and preprocessing  
 - Conduct **exploratory analysis** to understand service/cost patterns  
 - Develop **ML models** (regression for cost prediction, classification for service type prediction,
-  clustering for customer segmentation, estimatima if towing is needed)  
+  clustering for customer segmentation, estimatimation of towing if needed)  
 - Evaluate models with standard metrics  
 - Deploy best model in a **Streamlit web app**  
 
