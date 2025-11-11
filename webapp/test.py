@@ -3,31 +3,36 @@ import numpy as np
 import pickle
 import streamlit as st
 import datetime
+from pathlib import Path
 
-#Import models
+# base del proyecto (dos niveles arriba de este archivo)
+BASE = Path(__file__).resolve().parent.parent
+MODELS_DIR = BASE / "models"
 
-with open('C:\Users\J Vicente\OneDrive\Documentos\GitHub\sp-ml-17-final-project-g5\models\standard_scaler.pkl', 'rb') as file:
-    scaler = pickle.load(file)
+def load_pickle(filename):
+    path = MODELS_DIR / filename
+    if not path.exists():
+        st.error(f"Fichero no encontrado: {path}")
+        st.stop()
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
-with open('C:\Users\J Vicente\OneDrive\Documentos\GitHub\sp-ml-17-final-project-g5\models\grid_boost.pkl', 'rb') as file:
-    grid = pickle.load(file)
+# Import models (usar rutas relativas con pathlib)
+scaler = load_pickle("standard_scaler.pkl")
+grid = load_pickle("grid_boost.pkl")
 
 columns = ['customer_type', 'fabricant', 'follow_up_needed', 'make_and_model', 'mileage_bin', 'parts_used_normalized', 'parts_used', 'repair_date', 'service_description', 'service_status', 'service_type', 'urgency_level', 'vehicle_type']
 
 encoders = {}
-
 for column in columns:
-    with open(f'C:\Users\J Vicente\OneDrive\Documentos\GitHub\sp-ml-17-final-project-g5\models\label_encoder_{column}.pkl', 'rb') as file:
-        encoders[f'{column}'] = pickle.load(file)
+    encoders[column] = load_pickle(f"label_encoder_{column}.pkl")
 
-#Streamlit
-
+# Streamlit
 st.title('Predictor precio taller')
 st.text('Este modelo predice precios de reparacion de vehiculos motorizados a partir de ciertos parametros.')
 
-#Entries
-
-entrada = pd.Series()
+# Entries
+entrada = {}  # usar dict y luego convertir a DataFrame
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -119,29 +124,30 @@ with col2:
     entrada[f'{cat[1]}'] = st.selectbox(cat[1], options[1])
     entrada[f'{cat[3]}'] = st.selectbox(cat[3], options[3])
     entrada[f'{cat[14]}'] = st.selectbox(cat[14], options[14])
-    entrada[f'{cat[11]}'] = st.number_input(cat[11], 10000, 300000)
+    entrada[f'{cat[11]}'] = st.number_input(cat[11], 10000, 300000, step=1000)
 
 with col3:
     entrada[f'{cat[9]}'] = st.selectbox(cat[9], options[9])
     entrada[f'{cat[6]}'] = st.selectbox(cat[6], options[6])
     entrada[f'{cat[8]}'] = st.selectbox(cat[8], options[8])
-    entrada[f'{cat[12]}'] = st.number_input(cat[12], 0.0, 100.0)
+    entrada[f'{cat[12]}'] = st.number_input(cat[12], 0.0, 100.0, step=0.1)
 
 with col4: 
     entrada[f'{cat[13]}'] = st.selectbox(cat[13], options[13])
-    entrada[f'{cat[10]}'] = st.number_input(cat[10], 0.5, 10.1)
+    entrada[f'{cat[10]}'] = st.number_input(cat[10], 0.5, 10.1, step=0.5)
     entrada[f'{cat[4]}'] = str(st.date_input(cat[4], min_value=datetime.date(2020, 1, 1), 
                                          max_value=datetime.date(2024, 12, 31), format='YYYY-MM-DD'))
     entrada[f'{cat[15]}'] = st.selectbox(cat[15], options[15])
 
-#Data processing (encoder & scaling)
-
-entrada = pd.DataFrame(entrada).T
+# Data processing (encoder & scaling)
+entrada = pd.DataFrame([entrada])  # una fila
 
 for column in columns:
-    entrada[f'{column}_n'] = encoders[f'{column}'].transform(entrada[f'{column}'])
-    entrada.drop(f'{column}', axis=1, inplace=True)
+    # asegurarse de pasar array 1D al encoder
+    entrada[f'{column}_n'] = encoders[column].transform(entrada[column].astype(str).values)
+    entrada.drop(column, axis=1, inplace=True)
 
+# reordenar columnas según espera el scaler/modelo
 entrada = entrada[['service_duration_hours', 'mileage_at_service', 'tow_distance_miles', 'vehicle_type_n', 'make_and_model_n',
        'service_type_n', 'service_description_n', 'repair_date_n', 'parts_used_n', 'service_status_n',
        'follow_up_needed_n', 'urgency_level_n', 'customer_type_n', 'fabricant_n', 'parts_used_normalized_n',
@@ -149,8 +155,7 @@ entrada = entrada[['service_duration_hours', 'mileage_at_service', 'tow_distance
 
 entrada = scaler.transform(entrada)
 
-#Predict
-
+# Predict
 if st.button('Predice el precio con los parametros seleccionados'):
     precio = float(grid.predict(entrada)[0])
     st.text(f'La predicción del precio es {round(precio, 2)}€')
