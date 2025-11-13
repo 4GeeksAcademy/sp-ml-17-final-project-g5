@@ -28,7 +28,7 @@ for column in columns:
     encoders[column] = load_pickle(f"label_encoder_{column}.pkl")
 
 # Streamlit
-st.title('Predictor precio taller')
+st.title('🔧🛠️Predictor precio taller 🛠️🔧')
 st.text('Este modelo predice precios de reparacion de vehiculos motorizados a partir de ciertos parametros.')
 
 # Entries
@@ -139,8 +139,11 @@ with col4:
                                          max_value=datetime.date(2024, 12, 31), format='YYYY-MM-DD'))
     entrada[f'{cat[15]}'] = st.selectbox(cat[15], options[15])
 
+
 # Data processing (encoder & scaling)
 entrada = pd.DataFrame([entrada])  # una fila
+
+datos=entrada.copy()
 
 for column in columns:
     # asegurarse de pasar array 1D al encoder
@@ -155,8 +158,31 @@ entrada = entrada[['service_duration_hours', 'mileage_at_service', 'tow_distance
 
 entrada = scaler.transform(entrada)
 
+# Historial en session state
+
+if "history" not in st.session_state:
+    st.session_state["history"] = []   
+
 # Predict
 if st.button('Predice el precio con los parametros seleccionados'):
     precio = float(grid.predict(entrada)[0])
     st.text(f'La predicción del precio es {round(precio, 2)}€')
 
+ # Guardar en el historial
+    st.session_state["history"].append({
+            'Vehicle Type': datos['vehicle_type'][0], 
+            'Make and Model': datos['make_and_model'][0],
+            'Service Type': datos['service_type'][0],
+            "Precio": f"{round(precio, 2)}€" })
+    st.success("✅ Predicción guardada en el historial.")
+
+
+# Mostrar historial si hay
+if st.session_state["history"]:
+    st.markdown("### 📊 Historial de predicciones")
+    st.dataframe(st.session_state["history"])
+
+# Reiniciar historial
+if st.button("Reiniciar historial"):
+    st.session_state["history"].clear()
+    st.success("✅ Historial reiniciado.")
